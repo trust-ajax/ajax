@@ -1100,6 +1100,9 @@ html, body {
    getting blocked by the iPhone home indicator. These rules add
    safe-area padding so nothing sits under it. */
 .shell {
+  padding-top: max(24px, env(safe-area-inset-top));
+  padding-left: max(16px, env(safe-area-inset-left));
+  padding-right: max(16px, env(safe-area-inset-right));
   padding-bottom: calc(80px + env(safe-area-inset-bottom));
 }
 .modal-bg {
