@@ -1262,6 +1262,71 @@ img, video, canvas, svg { max-width: 100%; }
 }
 
 .hidden { display: none !important; }
+
+/* -------- Strava section -------- */
+.strava-section { margin-top: 24px; }
+.strava-section-hd {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.strava-section-title {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.10em;
+  text-transform: uppercase; color: var(--text-3);
+}
+.strava-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #FC4C02; flex-shrink: 0;
+}
+.strava-connect-btn {
+  display: inline-flex; align-items: center;
+  padding: 6px 14px;
+  background: #FC4C02; color: #fff;
+  border: none; border-radius: 9px;
+  font-family: inherit; font-size: 12px; font-weight: 700;
+  text-decoration: none; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 0.15s;
+}
+.strava-connect-btn:hover { opacity: 0.85; }
+.strava-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 4px 14px;
+}
+.strava-activity {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--border);
+}
+.strava-activity:last-child { border-bottom: none; }
+.strava-act-icon {
+  width: 34px; height: 34px; border-radius: 9px;
+  background: rgba(252, 76, 2, 0.10);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 17px; flex-shrink: 0; margin-top: 1px;
+}
+.strava-act-body { flex: 1; min-width: 0; }
+.strava-act-name {
+  font-size: 13px; font-weight: 600; color: var(--text-1);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  margin-bottom: 3px;
+}
+.strava-act-meta {
+  display: flex; flex-wrap: wrap; gap: 4px 10px;
+  font-size: 11px; color: var(--text-2);
+  font-family: var(--font-mono);
+}
+.strava-act-date {
+  font-size: 11px; color: var(--text-3);
+  font-family: var(--font-mono);
+  white-space: nowrap; flex-shrink: 0; padding-top: 2px;
+}
+.strava-empty {
+  padding: 18px 0; font-size: 12px;
+  color: var(--text-3); text-align: center;
+}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -1582,6 +1647,20 @@ img, video, canvas, svg { max-width: 100%; }
       <div class="po-tw-past-body" id="poTwPastBody" style="display:none"></div>
     </div>
   </div>
+
+  <!-- Strava recent activities -->
+  <section class="strava-section" id="stravaSection">
+    <div class="strava-section-hd">
+      <div class="strava-section-title">
+        <span class="strava-dot"></span>
+        Strava
+      </div>
+      <a href="/api/strava-auth" class="strava-connect-btn" id="stravaConnectBtn">Connect</a>
+    </div>
+    <div class="strava-card">
+      <div id="stravaList"><div class="strava-empty">Loading…</div></div>
+    </div>
+  </section>
 </div>
 
 <!-- Add / Edit Exercise Modal -->
@@ -3508,6 +3587,98 @@ img, video, canvas, svg { max-width: 100%; }
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) pcFlushPushOnUnload();
   });
+})();
+
+// ============================================================
+// STRAVA — reads recent activities from strava_activities table
+// ============================================================
+(async function initStrava() {
+  const list = document.getElementById('stravaList');
+  const connectBtn = document.getElementById('stravaConnectBtn');
+  if (!list) return;
+
+  if (new URLSearchParams(location.search).get('strava') === 'connected') {
+    history.replaceState({}, '', location.pathname);
+  }
+
+  if (!window.supabase || SUPABASE_URL.indexOf('PASTE-') === 0) {
+    list.innerHTML = '<div class="strava-empty">Set up Supabase to enable Strava sync.</div>';
+    return;
+  }
+
+  const supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  const COLS = 'id,name,sport_type,start_date,distance,moving_time,total_elevation_gain,average_heartrate,suffer_score';
+
+  async function load() {
+    const { data } = await supa.from('strava_activities')
+      .select(COLS).order('start_date', { ascending: false }).limit(10);
+    return data || [];
+  }
+
+  function sportIcon(t) {
+    t = (t || '').toLowerCase();
+    if (t.includes('run')) return '🏃';
+    if (t.includes('ride') || t.includes('cycling')) return '🚴';
+    if (t.includes('swim')) return '🏊';
+    if (t.includes('walk')) return '🚶';
+    if (t.includes('hike')) return '🥾';
+    if (t.includes('weight') || t.includes('workout') || t.includes('crossfit')) return '🏋️';
+    if (t.includes('yoga')) return '🧘';
+    if (t.includes('ski') || t.includes('snowboard')) return '⛷️';
+    return '⚡';
+  }
+  function isPaced(t) {
+    t = (t || '').toLowerCase();
+    return t.includes('run') || t.includes('ride') || t.includes('cycling') || t.includes('walk') || t.includes('hike');
+  }
+  function fmtDist(m) { return m ? (m / 1000).toFixed(1) + ' km' : null; }
+  function fmtTime(s) {
+    if (!s) return null;
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+    return h > 0 ? h + 'h ' + String(m).padStart(2, '0') + 'm' : m + ':' + String(sec).padStart(2, '0');
+  }
+  function fmtPace(distM, sec) {
+    if (!distM || !sec) return null;
+    const spk = sec / (distM / 1000);
+    return Math.floor(spk / 60) + ':' + String(Math.round(spk % 60)).padStart(2, '0') + '/km';
+  }
+  function fmtDate(iso) {
+    const d = new Date(iso);
+    const M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return M[d.getMonth()] + ' ' + d.getDate();
+  }
+
+  function render(acts) {
+    if (!acts.length) {
+      list.innerHTML = '<div class="strava-empty">No activities yet — connect and complete a workout.</div>';
+      return;
+    }
+    connectBtn.style.display = 'none';
+    list.innerHTML = acts.map(a => {
+      const meta = [
+        fmtDist(a.distance),
+        fmtTime(a.moving_time),
+        isPaced(a.sport_type) && a.distance ? fmtPace(a.distance, a.moving_time) : null,
+        a.total_elevation_gain > 5 ? '+' + Math.round(a.total_elevation_gain) + 'm' : null,
+        a.average_heartrate ? Math.round(a.average_heartrate) + ' bpm' : null,
+      ].filter(Boolean);
+      return `<div class="strava-activity">
+        <div class="strava-act-icon">${sportIcon(a.sport_type)}</div>
+        <div class="strava-act-body">
+          <div class="strava-act-name">${a.name || a.sport_type}</div>
+          ${meta.length ? `<div class="strava-act-meta">${meta.map(m => `<span>${m}</span>`).join('')}</div>` : ''}
+        </div>
+        <div class="strava-act-date">${fmtDate(a.start_date)}</div>
+      </div>`;
+    }).join('');
+  }
+
+  render(await load());
+
+  supa.channel('strava_feed')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'strava_activities' },
+      async () => render(await load()))
+    .subscribe();
 })();
 </script>
 
