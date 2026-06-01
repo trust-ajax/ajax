@@ -3587,98 +3587,98 @@ img, video, canvas, svg { max-width: 100%; }
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) pcFlushPushOnUnload();
   });
-})();
 
-// ============================================================
-// STRAVA — reads recent activities from strava_activities table
-// ============================================================
-(async function initStrava() {
-  const list = document.getElementById('stravaList');
-  const connectBtn = document.getElementById('stravaConnectBtn');
-  if (!list) return;
+  // ============================================================
+  // STRAVA — reads recent activities from strava_activities table
+  // ============================================================
+  (async function initStrava() {
+    const list = document.getElementById('stravaList');
+    const connectBtn = document.getElementById('stravaConnectBtn');
+    if (!list) return;
 
-  if (new URLSearchParams(location.search).get('strava') === 'connected') {
-    history.replaceState({}, '', location.pathname);
-  }
+    if (new URLSearchParams(location.search).get('strava') === 'connected') {
+      history.replaceState({}, '', location.pathname);
+    }
 
-  if (!window.supabase || SUPABASE_URL.indexOf('PASTE-') === 0) {
-    list.innerHTML = '<div class="strava-empty">Set up Supabase to enable Strava sync.</div>';
-    return;
-  }
-
-  const supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-  const COLS = 'id,name,sport_type,start_date,distance,moving_time,total_elevation_gain,average_heartrate,suffer_score';
-
-  async function load() {
-    const { data } = await supa.from('strava_activities')
-      .select(COLS).order('start_date', { ascending: false }).limit(10);
-    return data || [];
-  }
-
-  function sportIcon(t) {
-    t = (t || '').toLowerCase();
-    if (t.includes('run')) return '🏃';
-    if (t.includes('ride') || t.includes('cycling')) return '🚴';
-    if (t.includes('swim')) return '🏊';
-    if (t.includes('walk')) return '🚶';
-    if (t.includes('hike')) return '🥾';
-    if (t.includes('weight') || t.includes('workout') || t.includes('crossfit')) return '🏋️';
-    if (t.includes('yoga')) return '🧘';
-    if (t.includes('ski') || t.includes('snowboard')) return '⛷️';
-    return '⚡';
-  }
-  function isPaced(t) {
-    t = (t || '').toLowerCase();
-    return t.includes('run') || t.includes('ride') || t.includes('cycling') || t.includes('walk') || t.includes('hike');
-  }
-  function fmtDist(m) { return m ? (m / 1000).toFixed(1) + ' km' : null; }
-  function fmtTime(s) {
-    if (!s) return null;
-    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
-    return h > 0 ? h + 'h ' + String(m).padStart(2, '0') + 'm' : m + ':' + String(sec).padStart(2, '0');
-  }
-  function fmtPace(distM, sec) {
-    if (!distM || !sec) return null;
-    const spk = sec / (distM / 1000);
-    return Math.floor(spk / 60) + ':' + String(Math.round(spk % 60)).padStart(2, '0') + '/km';
-  }
-  function fmtDate(iso) {
-    const d = new Date(iso);
-    const M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    return M[d.getMonth()] + ' ' + d.getDate();
-  }
-
-  function render(acts) {
-    if (!acts.length) {
-      list.innerHTML = '<div class="strava-empty">No activities yet — connect and complete a workout.</div>';
+    if (!window.supabase || SUPABASE_URL.indexOf('PASTE-') === 0) {
+      list.innerHTML = '<div class="strava-empty">Set up Supabase to enable Strava sync.</div>';
       return;
     }
-    connectBtn.style.display = 'none';
-    list.innerHTML = acts.map(a => {
-      const meta = [
-        fmtDist(a.distance),
-        fmtTime(a.moving_time),
-        isPaced(a.sport_type) && a.distance ? fmtPace(a.distance, a.moving_time) : null,
-        a.total_elevation_gain > 5 ? '+' + Math.round(a.total_elevation_gain) + 'm' : null,
-        a.average_heartrate ? Math.round(a.average_heartrate) + ' bpm' : null,
-      ].filter(Boolean);
-      return `<div class="strava-activity">
-        <div class="strava-act-icon">${sportIcon(a.sport_type)}</div>
-        <div class="strava-act-body">
-          <div class="strava-act-name">${a.name || a.sport_type}</div>
-          ${meta.length ? `<div class="strava-act-meta">${meta.map(m => `<span>${m}</span>`).join('')}</div>` : ''}
-        </div>
-        <div class="strava-act-date">${fmtDate(a.start_date)}</div>
-      </div>`;
-    }).join('');
-  }
 
-  render(await load());
+    const supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const COLS = 'id,name,sport_type,start_date,distance,moving_time,total_elevation_gain,average_heartrate,suffer_score';
 
-  supa.channel('strava_feed')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'strava_activities' },
-      async () => render(await load()))
-    .subscribe();
+    async function load() {
+      const { data } = await supa.from('strava_activities')
+        .select(COLS).order('start_date', { ascending: false }).limit(10);
+      return data || [];
+    }
+
+    function sportIcon(t) {
+      t = (t || '').toLowerCase();
+      if (t.includes('run')) return '🏃';
+      if (t.includes('ride') || t.includes('cycling')) return '🚴';
+      if (t.includes('swim')) return '🏊';
+      if (t.includes('walk')) return '🚶';
+      if (t.includes('hike')) return '🥾';
+      if (t.includes('weight') || t.includes('workout') || t.includes('crossfit')) return '🏋️';
+      if (t.includes('yoga')) return '🧘';
+      if (t.includes('ski') || t.includes('snowboard')) return '⛷️';
+      return '⚡';
+    }
+    function isPaced(t) {
+      t = (t || '').toLowerCase();
+      return t.includes('run') || t.includes('ride') || t.includes('cycling') || t.includes('walk') || t.includes('hike');
+    }
+    function fmtDist(m) { return m ? (m / 1000).toFixed(1) + ' km' : null; }
+    function fmtTime(s) {
+      if (!s) return null;
+      const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+      return h > 0 ? h + 'h ' + String(m).padStart(2, '0') + 'm' : m + ':' + String(sec).padStart(2, '0');
+    }
+    function fmtPace(distM, sec) {
+      if (!distM || !sec) return null;
+      const spk = sec / (distM / 1000);
+      return Math.floor(spk / 60) + ':' + String(Math.round(spk % 60)).padStart(2, '0') + '/km';
+    }
+    function fmtDate(iso) {
+      const d = new Date(iso);
+      const M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      return M[d.getMonth()] + ' ' + d.getDate();
+    }
+
+    function render(acts) {
+      if (!acts.length) {
+        list.innerHTML = '<div class="strava-empty">No activities yet — connect and complete a workout.</div>';
+        return;
+      }
+      connectBtn.style.display = 'none';
+      list.innerHTML = acts.map(a => {
+        const meta = [
+          fmtDist(a.distance),
+          fmtTime(a.moving_time),
+          isPaced(a.sport_type) && a.distance ? fmtPace(a.distance, a.moving_time) : null,
+          a.total_elevation_gain > 5 ? '+' + Math.round(a.total_elevation_gain) + 'm' : null,
+          a.average_heartrate ? Math.round(a.average_heartrate) + ' bpm' : null,
+        ].filter(Boolean);
+        return `<div class="strava-activity">
+          <div class="strava-act-icon">${sportIcon(a.sport_type)}</div>
+          <div class="strava-act-body">
+            <div class="strava-act-name">${a.name || a.sport_type}</div>
+            ${meta.length ? `<div class="strava-act-meta">${meta.map(m => `<span>${m}</span>`).join('')}</div>` : ''}
+          </div>
+          <div class="strava-act-date">${fmtDate(a.start_date)}</div>
+        </div>`;
+      }).join('');
+    }
+
+    render(await load());
+
+    supa.channel('strava_feed')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'strava_activities' },
+        async () => render(await load()))
+      .subscribe();
+  })();
 })();
 </script>
 
